@@ -20,10 +20,13 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, UserDetailsService userDetailsService) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, UserDetailsService userDetailsService,
+                           JwtAuthenticationEntryPoint authenticationEntryPoint) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.userDetailsService = userDetailsService;
+        this.authenticationEntryPoint = authenticationEntryPoint;
     }
 
     @Bean
@@ -44,6 +47,12 @@ public class SecurityConfig {
         return provider;
     }
 
+    /**
+     * authenticationEntryPoint is now the standalone JwtAuthenticationEntryPoint
+     * @Component (injected above) — see that class for why this exists:
+     * it converts Spring Security's default blank 403 into a proper 401
+     * with a consistent JSON error body.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -55,6 +64,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             // No HTTP session is created or used -> every request must carry its own valid JWT
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll() // register/login must be reachable without a token
                 .anyRequest().authenticated()                 // everything else requires a valid JWT
